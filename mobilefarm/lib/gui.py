@@ -298,7 +298,7 @@ class AndroidGuiHelper:
         self._default_delay = default_delay
         self._test_name = get_pytest_name()
         self._screenshot_path = str(
-            pathlib.PurePosixPath(output_dir).joinpath(self._test_name)
+            (pathlib.Path(output_dir).resolve()).joinpath(self._test_name)
         )
 
     def get_web_driver(self) -> EventFiringWebDriver:

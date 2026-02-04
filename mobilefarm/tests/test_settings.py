@@ -5,7 +5,6 @@ from appium.webdriver.common.appiumby import AppiumBy
 from appium.webdriver.webdriver import WebDriver
 from pytest_boardfarm3.lib.test_logger import TestLogger
 
-
 @pytest.mark.env_req({"environment_def": {"pixel8_pro": {}}})
 def test_get_current_software_version(
     bf_logger: TestLogger,
