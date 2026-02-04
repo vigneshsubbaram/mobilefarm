@@ -1,0 +1,1 @@
+"""Mobilefarm devices package."""

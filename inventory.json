@@ -1,0 +1,14 @@
+{
+    "pixel8_pro": {
+        "devices": [
+            {
+                "conn_cmd": [
+                    "adb -s 39181FDJG0003W shell"
+                ],
+                "connection_type": "local_cmd",
+                "name": "pixel8_pro",
+                "type": "pixel8_pro"
+            }
+        ]
+    }
+}
