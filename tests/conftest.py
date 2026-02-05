@@ -58,11 +58,13 @@ def browser_data_visual_regression(
     :yield: the driver
     :rtype: Generator
     """
+    logging.basicConfig(level=logging.DEBUG)
     driver = AndroidGuiHelper(
     ).get_web_driver()
 
     yield driver
 
+    driver.terminate_app("com.android.settings")
     driver.quit()
     test_details = get_test_data
     if test_details.saved:
