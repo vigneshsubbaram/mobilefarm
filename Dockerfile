@@ -6,7 +6,7 @@ RUN apt-get update -y && apt install -y git gcc unzip wget && pip install uv && 
     git clone https://github.com/vigneshsubbaram/mobilefarm.git && \
     cd mobilefarm && uv pip install . --system && \
     wget https://dl.google.com/android/repository/platform-tools-latest-linux.zip \
-    -O /tmp/platform-tools-latest-linux.zip \
+    -O /opt/platform-tools-latest-linux.zip \
     && unzip /opt/platform-tools-latest-linux.zip -d /opt/ && \
     rm /opt/platform-tools-latest-linux.zip
 
