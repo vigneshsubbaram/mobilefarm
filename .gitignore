@@ -177,5 +177,9 @@ console-logs/
 
 # MobileFarm results
 results/
+
 # Snyk Security Extension - AI Rules (auto-generated)
 .github/instructions/snyk_rules.instructions.md
+
+# HTML files
+*.html
