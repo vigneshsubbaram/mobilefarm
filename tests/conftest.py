@@ -7,7 +7,6 @@ import pytest
 from _pytest.fixtures import FixtureRequest
 
 from mobilefarm.lib.gui import AndroidGuiHelper
-from typing import Callable
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +32,7 @@ def get_output_dir(request: FixtureRequest) -> str:
     return request.config.getoption("--save-console-logs")
 
 
-@pytest.fixture
+@pytest.fixture()
 def get_test_data() -> TestDetails:
     """Fixture for getting all test data.
 
@@ -43,10 +42,9 @@ def get_test_data() -> TestDetails:
     return TestDetails()
 
 
-@pytest.fixture
+@pytest.fixture()
 def browser_data_visual_regression(
     get_test_data: TestDetails,  # pylint: disable=redefined-outer-name
-    record_property: Callable
 ) -> Generator:
     """Fixture for the VisReg.
 
@@ -59,8 +57,7 @@ def browser_data_visual_regression(
     :rtype: Generator
     """
     logging.basicConfig(level=logging.DEBUG)
-    driver = AndroidGuiHelper(
-    ).get_web_driver()
+    driver = AndroidGuiHelper().get_web_driver()
 
     yield driver
 

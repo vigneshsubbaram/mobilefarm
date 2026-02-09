@@ -11,6 +11,14 @@ def test_get_current_software_version(
     bf_logger: TestLogger,
     browser_data_visual_regression: WebDriver,
 ) -> None:
+    """Test to get the current software version of the device.
+
+    :param bf_logger: Test logger instance for logging test steps and results
+    :type bf_logger: TestLogger
+    :param browser_data_visual_regression: Appium WebDriver instance for visual
+        regression testing
+    :type browser_data_visual_regression: WebDriver
+    """
     driver = browser_data_visual_regression
 
     bf_logger.log_step("Open Settings app")
@@ -25,13 +33,18 @@ def test_get_current_software_version(
     about_phone.click()
 
     bf_logger.log_step("Scroll to Build number")
-    build_number_el = driver.find_element(
+    driver.find_element(
         AppiumBy.ANDROID_UIAUTOMATOR,
         "new UiScrollable(new UiSelector().scrollable(true))"
         '.scrollIntoView(new UiSelector().text("Build number"))',
     )
 
-    build_number = build_number_el.text
+    build_number_value = driver.find_element(
+        AppiumBy.XPATH,
+        '//android.widget.TextView[@resource-id="android:id/title" and @text="Build number"]'
+        '/following-sibling::android.widget.TextView[@resource-id="android:id/summary"]',
+    )
+    build_number = build_number_value.text
     bf_logger.log_step(f"Build number: {build_number}")
 
     assert build_number, "Build number should not be empty"

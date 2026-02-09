@@ -91,6 +91,12 @@ class AndroidScreenshotListener(AbstractEventListener):
         super().__init__()
         self.screenshot_dir = Path(screenshot_path)
         self.screenshot_dir.mkdir(parents=True, exist_ok=True)
+        self._disable_log_messages_from_libraries()
+
+    def _disable_log_messages_from_libraries(self) -> None:
+        """Disable logs from urllib3."""
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logging.getLogger("selenium").setLevel(logging.WARNING)
 
     def capture_screenshot(
         self, driver: WebDriver, name: str, ext: str = "png"
