@@ -3,10 +3,24 @@
 import pytest
 from appium.webdriver.common.appiumby import AppiumBy
 from appium.webdriver.webdriver import WebDriver
+from boardfarm3.lib.device_manager import get_device_manager
 from pytest_boardfarm3.lib.test_logger import TestLogger
 
+from mobilefarm.templates.android import AndroidTemplate
+from mobilefarm.use_cases.android import open_application
 
-@pytest.mark.env_req({"environment_def": {"pixel8_pro": {}}})
+
+@pytest.mark.env_req(
+    {
+        "environment_def": {
+            "pixel8_pro": {
+                "model": "pixel8_pro",
+                "app_package": "com.android.settings",
+                "app_activity": ".Settings",
+            }
+        }
+    }
+)
 def test_get_current_software_version(
     bf_logger: TestLogger,
     browser_data_visual_regression: WebDriver,
@@ -19,10 +33,12 @@ def test_get_current_software_version(
         regression testing
     :type browser_data_visual_regression: WebDriver
     """
+    android_device = get_device_manager().get_device_by_type(
+        device_type=AndroidTemplate  # type:ignore[type-abstract]
+    )
     driver = browser_data_visual_regression
-
     bf_logger.log_step("Open Settings app")
-    driver.activate_app("com.android.settings")
+    open_application(android_device, driver)
 
     bf_logger.log_step("Open About phone")
     about_phone = driver.find_element(

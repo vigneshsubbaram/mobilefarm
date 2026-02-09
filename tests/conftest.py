@@ -5,13 +5,15 @@ from collections.abc import Generator
 
 import pytest
 from _pytest.fixtures import FixtureRequest
+from boardfarm3.lib.device_manager import get_device_manager
 
 from mobilefarm.lib.gui import AndroidGuiHelper
+from mobilefarm.templates.android import AndroidTemplate
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class TestDetails:
+class TestDetails:  # pylint: disable=too-few-public-methods
     """TestDetails helper class."""
 
     def __init__(self) -> None:
@@ -57,7 +59,10 @@ def browser_data_visual_regression(
     :rtype: Generator
     """
     logging.basicConfig(level=logging.DEBUG)
-    driver = AndroidGuiHelper().get_web_driver()
+    android_device = get_device_manager().get_device_by_type(
+        device_type=AndroidTemplate  # type:ignore[type-abstract]
+    )
+    driver = AndroidGuiHelper(android_device.config).get_web_driver()
 
     yield driver
 

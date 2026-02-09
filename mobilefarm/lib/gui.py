@@ -6,7 +6,7 @@ import logging
 import pathlib
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from appium import webdriver
 from appium.options.android.uiautomator2.base import UiAutomator2Options
@@ -15,6 +15,8 @@ from selenium.webdriver.support.abstract_event_listener import AbstractEventList
 from selenium.webdriver.support.event_firing_webdriver import EventFiringWebDriver
 from selenium.webdriver.support.wait import WebDriverWait
 
+from mobilefarm.lib.utils import get_capabilities
+
 if TYPE_CHECKING:
     from appium.webdriver.webdriver import WebDriver
     from selenium.webdriver.remote.webelement import WebElement
@@ -22,21 +24,21 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_web_driver(default_delay: int) -> WebDriver:
+def get_web_driver(default_delay: int, config: dict[str, Any] | None) -> WebDriver:
     """Return Appium webdriver.
 
     :param default_delay: default delay in seconds
     :type default_delay: int
+    :param capabilities: appium capabilities, defaults to None
+    :type capabilities: dict[str, Any], optional
     :return: configured Appium webdriver instance
     :rtype: WebDriver
     """
-    return appium_webproxy_driver(
-        default_delay=default_delay,
-    )
+    return appium_webproxy_driver(default_delay=default_delay, config=config)
 
 
 def appium_webproxy_driver(
-    default_delay: int,
+    default_delay: int, config: dict[str, Any] | None
 ) -> WebDriver:
     """Initialize Appium webdriver.
 
@@ -47,20 +49,9 @@ def appium_webproxy_driver(
     :return: gui selenium web driver instance
     :rtype: WebDriver
     """
-    caps = {
-        "platformName": "Android",
-        "automationName": "UiAutomator2",
-        "deviceName": "Android",
-        "appPackage": "com.android.settings",
-        "appActivity": ".Settings",
-        "noReset": True,
-        "language": "en",
-        "locale": "US",
-    }
-
     driver = webdriver.Remote(
         "http://localhost:4723",
-        options=UiAutomator2Options().load_capabilities(caps),
+        options=UiAutomator2Options().load_capabilities(config),
     )
     driver.implicitly_wait(default_delay)
     return driver
@@ -289,6 +280,7 @@ class AndroidGuiHelper:
 
     def __init__(
         self,
+        config: dict[Any, Any],
         default_delay: int = 20,
         output_dir: str | None = None,
     ) -> None:
@@ -306,6 +298,7 @@ class AndroidGuiHelper:
         self._screenshot_path = str(
             (pathlib.Path(output_dir).resolve()).joinpath(self._test_name)
         )
+        self._capabilities = get_capabilities(config)
 
     def get_web_driver(self) -> EventFiringWebDriver:
         """Return event firing web driver.
@@ -313,7 +306,7 @@ class AndroidGuiHelper:
         :return: web driver instance
         :rtype: EventFiringWebDriver
         """
-        web_driver = get_web_driver(self._default_delay)
+        web_driver = get_web_driver(self._default_delay, self._capabilities)
         event_firing_webdriver = EventFiringWebDriver(
             web_driver, AndroidScreenshotListener(self._screenshot_path)
         )
@@ -326,6 +319,6 @@ class AndroidGuiHelper:
         :return: web driver instance
         :rtype: WebDriver
         """
-        driver = get_web_driver(self._default_delay)
+        driver = get_web_driver(self._default_delay, self._capabilities)
         driver.screenshot_path = self._screenshot_path  # type: ignore[attr-defined]
         return driver

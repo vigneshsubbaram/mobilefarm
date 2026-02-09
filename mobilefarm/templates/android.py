@@ -17,3 +17,21 @@ class AndroidTemplate(ABC):  # pylint: disable=too-few-public-methods
         :rtype: BoardfarmPexpect
         """
         raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def config(self) -> dict:
+        """Device configuration."""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def app_package(self) -> str:
+        """Device app package."""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def app_activity(self) -> str:
+        """Device app activity."""
+        raise NotImplementedError

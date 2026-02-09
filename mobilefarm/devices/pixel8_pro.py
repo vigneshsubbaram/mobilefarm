@@ -1,14 +1,20 @@
 """MobileFarm Google Pixel 8 Pro module."""
 
+from __future__ import annotations
+
 import logging
-from argparse import Namespace
+from typing import TYPE_CHECKING, Any
 
 from boardfarm3 import hookimpl
 from boardfarm3.devices.base_devices.boardfarm_device import BoardfarmDevice
-from boardfarm3.lib.boardfarm_pexpect import BoardfarmPexpect
 from boardfarm3.lib.connection_factory import connection_factory
 
 from mobilefarm.templates.android import AndroidTemplate
+
+if TYPE_CHECKING:
+    from argparse import Namespace
+
+    from boardfarm3.lib.boardfarm_pexpect import BoardfarmPexpect
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,6 +31,7 @@ class Pixel8Pro(BoardfarmDevice, AndroidTemplate):
         :type cmdline_args: Namespace
         """
         super().__init__(config, cmdline_args)
+        self._config = config
         self._console: BoardfarmPexpect | None = None
         self._shell_prompt = [r".*\/ \$"]
 
@@ -79,3 +86,22 @@ class Pixel8Pro(BoardfarmDevice, AndroidTemplate):
         :returns: interactive consoles of the device
         """
         return {"pixel8_pro": self._console}
+
+    @property
+    def config(self) -> dict[str, Any]:
+        """Device config.
+
+        :return: Device config
+        :rtype: dict[str, Any]
+        """
+        return self._config
+
+    @property
+    def app_package(self) -> str:
+        """Device app package."""
+        return self._config.get("app_package", "com.android.settings")
+
+    @property
+    def app_activity(self) -> str:
+        """Device app activity."""
+        return self._config.get("app_activity", ".Settings")
