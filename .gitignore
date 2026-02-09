@@ -183,3 +183,9 @@ results/
 
 # HTML files
 *.html
+
+# Ruff cache
+.ruff_cache/
+
+# Trunk
+.trunk/
