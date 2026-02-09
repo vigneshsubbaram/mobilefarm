@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
-import pathlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -11,8 +11,6 @@ from typing import TYPE_CHECKING, Any
 from appium import webdriver
 from appium.options.android.uiautomator2.base import UiAutomator2Options
 from boardfarm3.lib.utils import get_pytest_name
-from selenium.webdriver.support.abstract_event_listener import AbstractEventListener
-from selenium.webdriver.support.event_firing_webdriver import EventFiringWebDriver
 from selenium.webdriver.support.wait import WebDriverWait
 
 from mobilefarm.lib.utils import get_capabilities
@@ -24,301 +22,215 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_web_driver(default_delay: int, config: dict[str, Any] | None) -> WebDriver:
-    """Return Appium webdriver.
+class ScreenshotMixin:  # pylint: disable=too-few-public-methods
+    """Mixin providing screenshot capture functionality."""
 
-    :param default_delay: default delay in seconds
-    :type default_delay: int
-    :param capabilities: appium capabilities, defaults to None
-    :type capabilities: dict[str, Any], optional
-    :return: configured Appium webdriver instance
-    :rtype: WebDriver
-    """
-    return appium_webproxy_driver(default_delay=default_delay, config=config)
+    screenshot_path: str
+    _driver: WebDriver
 
+    def _wait_for_ui_update(self, timeout: int = 2) -> None:
+        """Wait for the UI hierarchy to stabilize."""
+        with contextlib.suppress(Exception):
+            WebDriverWait(self._driver, timeout).until(
+                lambda d: d.page_source is not None
+            )
 
-def appium_webproxy_driver(
-    default_delay: int, config: dict[str, Any] | None
-) -> WebDriver:
-    """Initialize Appium webdriver.
+    def capture_screenshot(self, name: str) -> None:
+        """Capture a screenshot with a timestamped filename."""
+        self._wait_for_ui_update()
 
-    :param default_delay: selenium default delay in seconds
-    :type default_delay: int
-    :param headless: headless state, default to False
-    :type headless: bool
-    :return: gui selenium web driver instance
-    :rtype: WebDriver
-    """
-    driver = webdriver.Remote(
-        "http://localhost:4723",
-        options=UiAutomator2Options().load_capabilities(config),
-    )
-    driver.implicitly_wait(default_delay)
-    return driver
+        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S%f")
+        file_path = Path(self.screenshot_path) / f"{timestamp}_{name}.png"
+
+        try:
+            self._driver.get_screenshot_as_file(str(file_path))
+            _LOGGER.debug("Screenshot saved: %s", file_path)
+        except OSError as exc:
+            _LOGGER.warning("Failed to capture screenshot: %s", exc)
 
 
-class AndroidScreenshotListener(AbstractEventListener):
-    """Take a screenshot on exceptions/events.
+class AppiumElementProxy(ScreenshotMixin):
+    """Proxy around Appium WebElement to intercept actions."""
 
-    This allows to capture screenshot based on selenium web driver events.
-    Capturing screenshot can be varied by setting the logging.root.level
-    When logging.root.level set to :
+    def __init__(
+        self, element: WebElement, driver: WebDriver, screenshot_path: str
+    ) -> None:
+        """Initialize element proxy.
 
-        1. NOTSET - takes screenshots for on_exception and before_click events
-        2. INFO   - takes screenshots for on_exception, before_click and
-                            after_change_value_of events
-        3. DEBUG  - takes screenshot for all the events
-    """
-
-    debug_enabled = logging.root.level in (logging.DEBUG, logging.INFO)
-    verbose_debug_enabled = logging.root.level == logging.DEBUG
-
-    def __init__(self, screenshot_path: str) -> None:
-        """Init method.
-
-        :param screenshot_path: the screenshot destination dir
+        :param element: Original Appium WebElement
+        :type element: WebElement
+        :param driver: Appium WebDriver instance
+        :type driver: WebDriver
+        :param screenshot_path: Directory to store screenshots
         :type screenshot_path: str
         """
-        super().__init__()
-        self.screenshot_dir = Path(screenshot_path)
-        self.screenshot_dir.mkdir(parents=True, exist_ok=True)
+        self._element = element
+        self._driver = driver
+        self.screenshot_path = screenshot_path
+
+    def click(self) -> None:
+        """Click the element with before/after screenshots."""
+        self.capture_screenshot("before_click")
+        self._element.click()
+        self.capture_screenshot("after_click")
+
+    def send_keys(self, value: str) -> None:
+        """Send keys to the element with screenshots.
+
+        :param value: Text to send
+        :type value: str
+        """
+        self.capture_screenshot("before_send_keys")
+        self._element.send_keys(value)
+        self.capture_screenshot("after_send_keys")
+
+    def clear(self) -> None:
+        """Clear element value with screenshots."""
+        self.capture_screenshot("before_clear")
+        self._element.clear()
+        self.capture_screenshot("after_clear")
+
+    def __getattr__(self, name: str) -> Any:
+        """Delegate attribute access to the underlying element.
+
+        :param name: Attribute name
+        :type name: str
+        :return: Attribute value from the original element
+        :rtype: Any
+        """
+        return getattr(self._element, name)
+
+
+class AppiumDriverProxy(ScreenshotMixin):
+    """Proxy around Appium WebDriver to intercept driver-level actions."""
+
+    def __init__(self, driver: WebDriver, screenshot_path: str) -> None:
+        """Initialize driver proxy.
+
+        :param driver: Appium WebDriver
+        :type driver: WebDriver
+        :param screenshot_path: Directory to store screenshots
+        :type screenshot_path: str
+        """
+        self._driver = driver
+        self.screenshot_path = screenshot_path
+
+    def find_element(
+        self, by: str, value: str | dict | None = None
+    ) -> AppiumElementProxy:
+        """Find an element and return a proxy that captures screenshots on interactions.
+
+        :param by: Locator strategy (e.g., "id", "xpath")
+        :type by: str
+        :param value: Element locator value
+        :type value: str | dict | None, optional
+        :return: Wrapped Appium element proxy
+        :rtype: AppiumElementProxy
+        """
+        element = self._driver.find_element(by, value)
+        return AppiumElementProxy(element, self._driver, self.screenshot_path)
+
+    def execute_script(self, script: str, *args: Any) -> Any:  # noqa: ANN401
+        """Execute a script with screenshots.
+
+        This captures *all* modern Appium gestures:
+        swipe, scroll, drag, fling, etc.
+
+        :param script: Script name
+        :type script: str
+        :return: Script result
+        :rtype: Any
+        """
+        self.capture_screenshot("before_execute_script")
+        result = self._driver.execute_script(script, *args)
+        self.capture_screenshot("after_execute_script")
+        return result
+
+    def swipe(  # noqa: PLR0913
+        self,
+        start_x: int,
+        start_y: int,
+        end_x: int,
+        end_y: int,
+        duration: int,
+    ) -> None:
+        """Swipe with screenshots.
+
+        :param start_x: Starting X coordinate
+        :param start_y: Starting Y coordinate
+        :param end_x: Ending X coordinate
+        :param end_y: Ending Y coordinate
+        :param duration: Swipe duration in ms
+        """
+        self.capture_screenshot("before_swipe")
+        self._driver.swipe(start_x, start_y, end_x, end_y, duration)
+        self.capture_screenshot("after_swipe")
+
+    def activate_app(self, app_id: str) -> None:
+        """Activate app with screenshots.
+
+        :param app_id: Application package name
+        :type app_id: str
+        """
+        self.capture_screenshot("before_activate_app")
+        self._driver.activate_app(app_id)
+        self.capture_screenshot("after_activate_app")
+
+    def quit(self) -> None:  # flake8: noqa: A003
+        """Quit driver with final screenshot."""
+        self.capture_screenshot("before_quit")
+        self._driver.quit()
+
+    def __getattr__(self, name: str) -> object:
+        """Delegate attribute access to the underlying driver."""
+        return getattr(self._driver, name)
+
+
+class AndroidGuiHelper:  # pylint: disable=too-few-public-methods
+    """GUI helper class to create Appium drivers with screenshot interception."""
+
+    def __init__(
+        self,
+        config: dict[str, Any],
+        default_delay: int = 20,
+        output_dir: str | None = None,
+    ) -> None:
+        """Initialize GUI helper.
+
+        :param config: Appium capabilities config
+        :type config: dict[str, Any]
+        :param default_delay: Implicit wait delay
+        :type default_delay: int
+        :param output_dir: Output directory for screenshots
+        :type output_dir: str | None
+        """
+        if output_dir is None:
+            output_dir = Path.cwd().joinpath("results").as_posix()
+
+        self._default_delay = default_delay
+        self._test_name = get_pytest_name()
+        self._screenshot_path = str(
+            Path(output_dir).resolve().joinpath(self._test_name)
+        )
+        Path(self._screenshot_path).mkdir(parents=True, exist_ok=True)
+        self._capabilities = get_capabilities(config)
         self._disable_log_messages_from_libraries()
+
+    def get_web_driver(self) -> AppiumDriverProxy:
+        """Return wrapped Appium WebDriver.
+
+        :return: Screenshot-enabled Appium driver
+        :rtype: AppiumDriverProxy
+        """
+        raw_driver = webdriver.Remote(
+            "http://localhost:4723",
+            options=UiAutomator2Options().load_capabilities(self._capabilities),
+        )
+        raw_driver.implicitly_wait(self._default_delay)
+
+        return AppiumDriverProxy(raw_driver, self._screenshot_path)
 
     def _disable_log_messages_from_libraries(self) -> None:
         """Disable logs from urllib3."""
         logging.getLogger("urllib3").setLevel(logging.WARNING)
         logging.getLogger("selenium").setLevel(logging.WARNING)
-
-    def capture_screenshot(
-        self, driver: WebDriver, name: str, ext: str = "png"
-    ) -> None:
-        """Capture screenshot and save name.ext to disk.
-
-        :param driver: web driver
-        :type driver: WebDriver
-        :param name: the filename (with path if needed)
-        :type name: str
-        :param ext: the extension, defaults to png
-        :type ext: str
-        """
-        now = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S%f")
-        file_path = self.screenshot_dir / f"{now}_{name}.{ext}"
-
-        WebDriverWait(driver, 3).until(lambda d: d.page_source)
-
-        try:
-            driver.get_screenshot_as_file(str(file_path))
-            _LOGGER.debug("Screenshot saved: %s", file_path)
-        except Exception as exc:
-            _LOGGER.warning("Failed to capture screenshot: %s", exc)
-
-    def on_exception(
-        self,
-        exception: Exception,  # noqa: ARG002
-        driver: WebDriver,
-    ) -> None:
-        """Capture screenshot on exception.
-
-        :param exception: unused
-        :type exception: Exception
-        :param driver: web driver
-        :type driver: WebDriver
-        """
-        self.capture_screenshot(driver, "Exception")
-
-    def before_navigate_to(
-        self,
-        url: str,  # noqa: ARG002
-        driver: WebDriver,
-    ) -> None:
-        """Capture screenshot before navigate_to event.
-
-        :param url: unused
-        :type url: str
-        :param driver: web driver
-        :type driver: WebDriver
-        """
-        if self.verbose_debug_enabled:
-            self.capture_screenshot(driver, "before_navigate_to")
-
-    def after_navigate_to(
-        self,
-        url: str,  # noqa: ARG002
-        driver: WebDriver,
-    ) -> None:
-        """Capture screenshot after navigate_to event.
-
-        :param url: unused
-        :type url: str
-        :param driver: web driver
-        :type driver: WebDriver
-        """
-        if self.verbose_debug_enabled:
-            self.capture_screenshot(driver, "after_navigate_to")
-
-    def before_click(
-        self,
-        element: WebElement,  # noqa: ARG002
-        driver: WebDriver,
-    ) -> None:
-        """Capture screenshot before click event.
-
-        :param element: unused
-        :type element: WebElement
-        :param driver: web driver
-        :type driver: WebDriver
-        """
-        self.capture_screenshot(driver, "before_click")
-
-    def after_click(
-        self,
-        element: WebElement,  # noqa: ARG002
-        driver: WebDriver,
-    ) -> None:
-        """Capture screenshot after click event.
-
-        :param element: unused
-        :type element: WebElement
-        :param driver: web driver
-        :type driver: WebDriver
-        """
-        if self.verbose_debug_enabled:
-            self.capture_screenshot(driver, "after_click")
-
-    def before_change_value_of(
-        self,
-        element: WebElement,  # noqa: ARG002
-        driver: WebDriver,
-    ) -> None:
-        """Capture screenshot before change_value_of event.
-
-        :param element: unused
-        :type element: WebElement
-        :param driver: web driver
-        :type driver: WebDriver
-        """
-        if self.verbose_debug_enabled:
-            self.capture_screenshot(driver, "before_change_value_of")
-
-    def after_change_value_of(
-        self,
-        element: WebElement,  # noqa: ARG002
-        driver: WebDriver,
-    ) -> None:
-        """Capture screenshot after change_value_of event.
-
-        :param element: unused
-        :type element: WebElement
-        :param driver: web driver
-        :type driver: WebDriver
-        """
-        if self.verbose_debug_enabled or self.debug_enabled:
-            self.capture_screenshot(driver, "after_change_value_of")
-
-    def before_execute_script(
-        self,
-        script: str,  # noqa: ARG002
-        driver: WebDriver,
-    ) -> None:
-        """Capture screenshot before execute_script event.
-
-        :param script: unused
-        :type script: str
-        :param driver: web driver
-        :type driver: WebDriver
-        """
-        if self.verbose_debug_enabled:
-            self.capture_screenshot(driver, "before_execute_script")
-
-    def after_execute_script(
-        self,
-        script: str,  # noqa: ARG002
-        driver: WebDriver,
-    ) -> None:
-        """Capture screenshot after execute_script event.
-
-        :param script: unused
-        :type script: str
-        :param driver: web driver
-        :type driver: WebDriver
-        """
-        if self.verbose_debug_enabled:
-            self.capture_screenshot(driver, "after_execute_script")
-
-    def before_close(self, driver: WebDriver) -> None:
-        """Capture screenshot before close event.
-
-        :param driver: web driver
-        :type driver: WebDriver
-        """
-        if self.verbose_debug_enabled:
-            self.capture_screenshot(driver, "before_close")
-
-    def after_close(self, driver: WebDriver) -> None:
-        """Capture screenshot after close event.
-
-        :param driver: web driver
-        :type driver: WebDriver
-        """
-        if self.verbose_debug_enabled:
-            self.capture_screenshot(driver, "after_close")
-
-    def before_quit(self, driver: WebDriver) -> None:
-        """Capture screenshot before quit event.
-
-        :param driver: web driver
-        :type driver: WebDriver
-        """
-        if self.verbose_debug_enabled:
-            self.capture_screenshot(driver, "before_quit")
-
-
-class AndroidGuiHelper:
-    """GuiHelper class to get webdrivers for testing."""
-
-    _headless: bool = True
-
-    def __init__(
-        self,
-        config: dict[Any, Any],
-        default_delay: int = 20,
-        output_dir: str | None = None,
-    ) -> None:
-        """GUI helper class.
-
-        :param default_delay: default delay in seconds, defaults to 20
-        :type default_delay: int
-        :param output_dir: output directory path, defaults to None
-        :type output_dir: str | None
-        """
-        if output_dir is None:
-            output_dir = pathlib.Path.cwd().joinpath("results").as_posix()
-        self._default_delay = default_delay
-        self._test_name = get_pytest_name()
-        self._screenshot_path = str(
-            (pathlib.Path(output_dir).resolve()).joinpath(self._test_name)
-        )
-        self._capabilities = get_capabilities(config)
-
-    def get_web_driver(self) -> EventFiringWebDriver:
-        """Return event firing web driver.
-
-        :return: web driver instance
-        :rtype: EventFiringWebDriver
-        """
-        web_driver = get_web_driver(self._default_delay, self._capabilities)
-        event_firing_webdriver = EventFiringWebDriver(
-            web_driver, AndroidScreenshotListener(self._screenshot_path)
-        )
-        event_firing_webdriver.screenshot_path = self._screenshot_path
-        return event_firing_webdriver
-
-    def get_webdriver_without_event_firing(self) -> WebDriver:
-        """Return webdriver without the EventFiringWebDriver.
-
-        :return: web driver instance
-        :rtype: WebDriver
-        """
-        driver = get_web_driver(self._default_delay, self._capabilities)
-        driver.screenshot_path = self._screenshot_path  # type: ignore[attr-defined]
-        return driver
