@@ -1,0 +1,9 @@
+{
+    "environment_def": {
+        "pixel8_pro": {
+            "model": "pixel8_pro",
+            "app_package": "com.google.android.deskclock",
+            "app_activity": "com.android.deskclock.DeskClock"
+        }
+    }
+}

@@ -3,11 +3,7 @@
 import pytest
 from appium.webdriver.common.appiumby import AppiumBy
 from appium.webdriver.webdriver import WebDriver
-from boardfarm3.lib.device_manager import get_device_manager
 from pytest_boardfarm3.lib.test_logger import TestLogger
-
-from mobilefarm.templates.android import AndroidTemplate
-from mobilefarm.use_cases.android import open_application
 
 
 @pytest.mark.env_req(
@@ -23,22 +19,17 @@ from mobilefarm.use_cases.android import open_application
 )
 def test_get_current_software_version(
     bf_logger: TestLogger,
-    browser_data_visual_regression: WebDriver,
+    android_web_driver: WebDriver,
 ) -> None:
     """Test to get the current software version of the device.
 
     :param bf_logger: Test logger instance for logging test steps and results
     :type bf_logger: TestLogger
-    :param browser_data_visual_regression: Appium WebDriver instance for visual
-        regression testing
-    :type browser_data_visual_regression: WebDriver
+    :param android_web_driver: Appium WebDriver instance for Android device testing
+    :type android_web_driver: WebDriver
     """
-    android_device = get_device_manager().get_device_by_type(
-        device_type=AndroidTemplate  # type:ignore[type-abstract]
-    )
-    driver = browser_data_visual_regression
     bf_logger.log_step("Open Settings app")
-    open_application(android_device, driver)
+    driver = android_web_driver
 
     bf_logger.log_step("Open About phone")
     about_phone = driver.find_element(

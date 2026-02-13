@@ -33,7 +33,11 @@ class ScreenshotMixin:  # pylint: disable=too-few-public-methods
         with contextlib.suppress(Exception):
             WebDriverWait(self._driver, timeout).until(
                 lambda d: d.page_source is not None
+                and d.current_package == self._driver.current_package
             )
+
+        with contextlib.suppress(Exception):
+            self._driver.execute_script("mobile: waitForIdleSync", {"timeout": 5000})
 
     def capture_screenshot(self, name: str) -> None:
         """Capture a screenshot with a timestamped filename."""
@@ -146,6 +150,20 @@ class AppiumDriverProxy(ScreenshotMixin):
         self.capture_screenshot("after_execute_script")
         return result
 
+    def tap(
+        self, positions: list[tuple[int, int]], duration: int | None = None
+    ) -> None:
+        """Tap on the screen with screenshots.
+
+        :param positions: List of (x, y) coordinates to tap
+        :type positions: list[tuple[int, int]]
+        :param duration: Duration of the tap in ms (optional)
+        :type duration: int | None
+        """
+        self.capture_screenshot("before_tap")
+        self._driver.tap(positions, duration)
+        self.capture_screenshot("after_tap")
+
     def swipe(  # noqa: PLR0913
         self,
         start_x: int,
@@ -175,6 +193,16 @@ class AppiumDriverProxy(ScreenshotMixin):
         self.capture_screenshot("before_activate_app")
         self._driver.activate_app(app_id)
         self.capture_screenshot("after_activate_app")
+
+    def terminate_app(self, app_id: str) -> None:
+        """Terminate app with screenshots.
+
+        :param app_id: Application package name
+        :type app_id: str
+        """
+        self.capture_screenshot("before_terminate_app")
+        self._driver.terminate_app(app_id)
+        self.capture_screenshot("after_terminate_app")
 
     def quit(self) -> None:  # flake8: noqa: A003
         """Quit driver with final screenshot."""

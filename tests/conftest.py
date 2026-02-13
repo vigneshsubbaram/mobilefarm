@@ -9,6 +9,7 @@ from boardfarm3.lib.device_manager import get_device_manager
 
 from mobilefarm.lib.gui import AndroidGuiHelper
 from mobilefarm.templates.android import AndroidTemplate
+from mobilefarm.use_cases.android import open_application
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ def get_test_data() -> TestDetails:
 
 
 @pytest.fixture()
-def browser_data_visual_regression(
+def android_web_driver(
     get_test_data: TestDetails,  # pylint: disable=redefined-outer-name
 ) -> Generator:
     """Fixture for the VisReg.
@@ -64,12 +65,13 @@ def browser_data_visual_regression(
     )
     driver = AndroidGuiHelper(android_device.config).get_web_driver()
 
-    yield driver
-
-    driver.terminate_app("com.android.settings")
-    driver.quit()
-    test_details = get_test_data
-    if test_details.saved:
-        msg = "This test saved an attachment."
-        _LOGGER.critical(msg)
-        raise RuntimeError(msg)
+    try:
+        with open_application(android_device, driver):
+            yield driver
+    finally:
+        driver.quit()
+        test_details = get_test_data
+        if test_details.saved:
+            msg = "This test saved an attachment."
+            _LOGGER.critical(msg)
+            raise RuntimeError(msg)
