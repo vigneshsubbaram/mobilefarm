@@ -35,7 +35,7 @@ def get_output_dir(request: FixtureRequest) -> str:
     return request.config.getoption("--save-console-logs")
 
 
-@pytest.fixture()
+@pytest.fixture
 def get_test_data() -> TestDetails:
     """Fixture for getting all test data.
 
@@ -45,7 +45,7 @@ def get_test_data() -> TestDetails:
     return TestDetails()
 
 
-@pytest.fixture()
+@pytest.fixture
 def android_web_driver(
     get_test_data: TestDetails,  # pylint: disable=redefined-outer-name
 ) -> Generator:
