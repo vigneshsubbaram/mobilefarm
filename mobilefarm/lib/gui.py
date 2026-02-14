@@ -32,8 +32,10 @@ class ScreenshotMixin:  # pylint: disable=too-few-public-methods
         """Wait for the UI hierarchy to stabilize."""
         with contextlib.suppress(Exception):
             WebDriverWait(self._driver, timeout).until(
-                lambda d: d.page_source is not None
-                and d.current_package == self._driver.current_package
+                lambda d: (
+                    d.page_source is not None
+                    and d.current_package == self._driver.current_package
+                )
             )
 
         with contextlib.suppress(Exception):
@@ -94,7 +96,7 @@ class AppiumElementProxy(ScreenshotMixin):
         self._element.clear()
         self.capture_screenshot("after_clear")
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> Any:  # noqa: ANN401
         """Delegate attribute access to the underlying element.
 
         :param name: Attribute name
@@ -164,7 +166,7 @@ class AppiumDriverProxy(ScreenshotMixin):
         self._driver.tap(positions, duration)
         self.capture_screenshot("after_tap")
 
-    def swipe(  # noqa: PLR0913
+    def swipe(  # noqa: PLR0913, RUF100
         self,
         start_x: int,
         start_y: int,
@@ -204,7 +206,7 @@ class AppiumDriverProxy(ScreenshotMixin):
         self._driver.terminate_app(app_id)
         self.capture_screenshot("after_terminate_app")
 
-    def quit(self) -> None:  # flake8: noqa: A003
+    def quit(self) -> None:  # noqa: A003, RUF100
         """Quit driver with final screenshot."""
         self.capture_screenshot("before_quit")
         self._driver.quit()

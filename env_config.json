@@ -1,9 +1,9 @@
 {
     "environment_def": {
         "pixel8_pro": {
-            "model": "pixel8_pro",
+            "app_activity": ".Settings",
             "app_package": "com.android.settings",
-            "app_activity": ".Settings"
+            "model": "pixel8_pro"
         }
     }
 }
