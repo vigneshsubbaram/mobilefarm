@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from boardfarm3 import hookimpl
-from boardfarm3.devices.base_devices.boardfarm_device import BoardfarmDevice
+from boardfarm3.devices.base_devices import LinuxDevice
 from boardfarm3.lib.connection_factory import connection_factory
 
 from mobilefarm.templates.android import AndroidTemplate
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-class Pixel8Pro(BoardfarmDevice, AndroidTemplate):
+class Pixel8Pro(LinuxDevice, AndroidTemplate):
     """MobileFarm Google Pixel 8 Pro device."""
 
     def __init__(self, config: dict, cmdline_args: Namespace) -> None:
@@ -83,7 +83,8 @@ class Pixel8Pro(BoardfarmDevice, AndroidTemplate):
     def get_interactive_consoles(self) -> dict[str, BoardfarmPexpect]:
         """Get interactive consoles from device.
 
-        :returns: interactive consoles of the device
+        :return: interactive consoles of the device
+        :rtype: dict[str, BoardfarmPexpect]
         """
         return {"pixel8_pro": self._console}
 

@@ -1,0 +1,18 @@
+{
+    "cuttlefish": {
+        "devices": [
+            {
+                "conn_cmd": "bash -c 'adb connect 10.106.185.202:6520 && adb shell'",
+                "connection_type": "local_cmd",
+                "name": "cuttlefish",
+                "type": "cuttlefish"
+            },
+            {
+                "connection_type": "authenticated_ssh",
+                "ipaddr": "10.106.185.201",
+                "name": "ota",
+                "type": "ota_server"
+            }
+        ]
+    }
+}
