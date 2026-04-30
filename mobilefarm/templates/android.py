@@ -21,7 +21,12 @@ class AndroidTemplate(ABC):  # pylint: disable=too-few-public-methods
     @property
     @abstractmethod
     def config(self) -> dict:
-        """Device configuration."""
+        """Device configuration.
+
+        :raises NotImplementedError: if not implemented
+        :return: device configuration
+        :rtype: dict
+        """
         raise NotImplementedError
 
     @property
