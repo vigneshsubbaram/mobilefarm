@@ -66,7 +66,13 @@ class Pixel8Pro(LinuxDevice, AndroidTemplate):
         self._connect_to_console()
 
     @hookimpl
-    def boardfarm_device_boot_async(self) -> None:
+    def boardfarm_shutdown_device(self) -> None:
+        """Boardfarm hook implementation to shutdown Google Pixel 8 Pro."""
+        _LOGGER.info("Shutdown %s(%s) device", self.device_name, self.device_type)
+        self._disconnect()
+
+    @hookimpl
+    def boardfarm_server_boot_async(self) -> None:
         """Boot Google Pixel 8 Pro asynchronously."""
         err_msg = "Asynchronous boot not supported for Pixel 8 Pro"
         raise NotImplementedError(err_msg)

@@ -1,0 +1,14 @@
+{
+    "environment_def": {
+        "cuttlefish": {
+            "app_activity": ".Settings",
+            "app_package": "com.android.settings",
+            "model": "cuttlefish",
+            "software": {
+                "build_id": "15212407",
+                "flash_strategy": "OTA",
+                "target": "aosp_cf_x86_64_only_phone-userdebug"
+            }
+        }
+    }
+}
