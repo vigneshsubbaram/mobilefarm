@@ -70,6 +70,11 @@ class OTAServer(LinuxDevice, OTAServerTemplate):
         :type output: str
         :raises NotImplementedError: if not implemented
         """
+        result = self._console.execute_command(
+            f"test -f {output} && echo EXISTS || echo MISSING", timeout=10
+        )
+        if "EXISTS" in result:
+            return
         fetch_command = f"fetch_artifact -target {target} -build_id {build_id} -artifact {artifact_name} -output {output}"
         self._console.execute_command(fetch_command, timeout=60)
 
