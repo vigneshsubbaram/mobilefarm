@@ -88,16 +88,6 @@ class CuttleFish(LinuxDevice, AndroidTemplate):
         return self._config["software"]["target"]
 
     @property
-    def adb_target(self) -> str:
-        """Returns the ADB target for the device.
-
-        :return: ADB target
-        :rtype: str
-        """
-        parts = shlex.split(self._config["conn_cmd"])
-        return parts[2].split()[2]
-
-    @property
     def artifact_name(self) -> str:
         """Returns the OTA artifact name to fetch from the OTA server.
 
