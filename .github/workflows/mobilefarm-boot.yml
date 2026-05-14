@@ -1,0 +1,151 @@
+---
+name: MobileFarm CI
+
+on:
+    push:
+        branches:
+            - main
+            - master
+    pull_request:
+        branches:
+            - main
+            - master
+    workflow_dispatch:
+        inputs:
+            build_id:
+                description: Android build ID (leave empty to track branch tip)
+                required: false
+                default: ''
+            arch:
+                description: Target architecture
+                required: false
+                default: x86_64
+                type: choice
+                options:
+                    - x86_64
+                    - arm64
+            branch:
+                description: Android branch (ignored when build_id is set)
+                required: false
+                default: aosp-android13-gsi
+
+concurrency:
+    group: fishtank-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    build_and_test:
+        name: Bring up FishTank and run MobileFarm OTA boot
+        runs-on: ubuntu-latest
+
+        env:
+            CF_BUILD_ID: ${{ inputs.build_id || '' }}
+            CF_ARCH: ${{ inputs.arch   || 'x86_64' }}
+            CF_BRANCH: ${{ inputs.branch || 'aosp-android13-gsi' }}
+            COMPOSE_DIR: ${{ github.workspace }}/mobilefarm/mobilefarm/config/cuttlefish
+            NW_CONFIG: ${{ github.workspace }}/mobilefarm/mobilefarm/config/cuttlefish/config.json
+
+        steps:
+            - name: Set up Python ${{ matrix.python-version }}
+              uses: actions/setup-python@v6
+              with:
+                  python-version: '3.12'
+
+            - name: Checkout mobilefarm
+              uses: actions/checkout@v6
+              with:
+                  repository: vigneshsubbaram/mobilefarm
+                  ref: main
+                  path: mobilefarm
+
+            - name: Build cuttlefish image
+              env:
+                  DOCKER_BUILDKIT: 0
+                  COMPOSE_DOCKER_CLI_BUILD: 0
+              working-directory: ${{ env.COMPOSE_DIR }}
+              run: |
+                  BUILD_ARGS="--build-arg ARCH=${CF_ARCH} --build-arg BRANCH=${CF_BRANCH}"
+                  if [ -n "${CF_BUILD_ID}" ]; then
+                      BUILD_ARGS="${BUILD_ARGS} --build-arg BUILD_ID=${CF_BUILD_ID}"
+                  fi
+                  docker compose build cuttlefish \
+                    ${BUILD_ARGS} \
+                    --no-cache
+
+            - name: Run FishTank
+              working-directory: ${{ env.COMPOSE_DIR }}
+              run: docker compose up -d --remove-orphans
+
+            - name: Wait for FishTank to be ready
+              run: |
+                  echo "Waiting for Cuttlefish to boot..."
+                  timeout 600 bash -c '
+                    until docker logs cuttlefish 2>&1 | grep -q "VIRTUAL_DEVICE_BOOT_COMPLETED"; do
+                      echo "Still waiting..."
+                      sleep 10
+                    done
+                  '
+                  echo "Cuttlefish is ready!"
+
+            - name: Set up Go
+              uses: actions/setup-go@v6
+              with:
+                  go-version: '1.23'
+
+            - name: Build fetch_artifact
+              run: |
+                  git clone https://android.googlesource.com/tools/fetch_artifact /tmp/fetch_artifact_src
+                  cd /tmp/fetch_artifact_src
+                  go build -o fetch_artifact .
+                  sudo mv fetch_artifact /usr/local/bin/fetch_artifact
+                  fetch_artifact --help
+
+            - name: Fetch OTA artifact and copy into ota container
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y jq android-sdk-platform-tools
+
+                  ENV_CFG="${{ env.COMPOSE_DIR }}/env_config.json"
+
+                  if [ -n "${CF_BUILD_ID}" ]; then
+                      BUILD_ID="${CF_BUILD_ID}"
+                  else
+                      BUILD_ID=$(jq -r '.environment_def.cuttlefish.software.build_id' "${ENV_CFG}")
+                  fi
+
+                  TARGET=$(jq -r '.environment_def.cuttlefish.software.target' "${ENV_CFG}")
+                  PRODUCT=$(echo "${TARGET}" | cut -d'-' -f1)
+                  ARTIFACT_NAME="${PRODUCT}-ota-${BUILD_ID}.zip"
+
+                  echo "BUILD_ID=${BUILD_ID}"
+                  echo "TARGET=${TARGET}"
+                  echo "ARTIFACT_NAME=${ARTIFACT_NAME}"
+
+                  fetch_artifact \
+                    -target "${TARGET}" \
+                    -build_id "${BUILD_ID}" \
+                    -artifact "${ARTIFACT_NAME}" \
+                    -output "${ARTIFACT_NAME}"
+
+                  docker cp "${ARTIFACT_NAME}" ota:/root/
+
+                  docker exec ota ls -lh "/root/${ARTIFACT_NAME}"
+
+                  adb version
+
+            - name: Install boardfarm
+              working-directory: ${{ github.workspace }}/mobilefarm
+              run: python -m pip install --root-user-action ignore -e .[dev]
+
+            - name: Run boot with mobilefarm
+              working-directory: ${{ github.workspace }}/mobilefarm
+              run: >
+                  echo "Runing Mobilefarm";
+                  echo q | boardfarm --board-name cuttlefish \
+                    --env-config ./mobilefarm/config/cuttlefish/env_config.json \
+                    --inventory-config ./mobilefarm/config/cuttlefish/inventory_cuttlefish.json \
+                    --legacy
+
+            - name: Stop FishTank
+              working-directory: ${{ env.COMPOSE_DIR }}
+              run: docker compose down -v --remove-orphans
