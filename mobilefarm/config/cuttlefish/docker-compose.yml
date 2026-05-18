@@ -2,7 +2,7 @@
 services:
 
     mtt:
-        image: ghcr.io/vigneshsubbaram/mtt:prod
+        image: ghcr.io/vigneshsubbaram/mtt-ssh:prod
         container_name: mtt
         ports:
             - 8000:8000
