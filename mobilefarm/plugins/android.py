@@ -3,6 +3,7 @@
 from boardfarm3 import hookimpl
 from boardfarm3.devices.base_devices import BoardfarmDevice
 
+from mobilefarm.devices.ats import AndroidTestStation
 from mobilefarm.devices.cuttlefish import CuttleFish
 from mobilefarm.devices.ota_server import OTAServer
 from mobilefarm.devices.pixel8_pro import Pixel8Pro
@@ -19,4 +20,5 @@ def boardfarm_add_devices() -> dict[str, type[BoardfarmDevice]]:
         "pixel8_pro": Pixel8Pro,
         "cuttlefish": CuttleFish,
         "ota_server": OTAServer,
+        "android_test_station": AndroidTestStation,
     }

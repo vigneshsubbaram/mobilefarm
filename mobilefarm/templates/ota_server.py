@@ -11,7 +11,7 @@ class OTAServerTemplate(ABC):  # pylint: disable=too-few-public-methods
     @property
     @abstractmethod
     def console(self) -> BoardfarmPexpect:
-        """Returns LAN console.
+        """Returns OTA server device console.
 
         :return: console
         :rtype: BoardfarmPexpect
