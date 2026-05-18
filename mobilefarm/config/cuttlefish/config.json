@@ -1,25 +1,38 @@
 {
     "bridge": {
-        "cuttlefish-ota": {
-            "ipaddress": "10.139.56.132/24",
-            "iprange": "10.139.56.0/24"
+        "cuttlefish-lab": {
+            "ipaddress": "10.40.166.139/24",
+            "iprange": "10.40.166.0/24",
+            "parents": [
+                {
+                    "iface": "enx4218ed17cf5e"
+                }
+            ]
         }
     },
     "container": {
         "cuttlefish": [
             {
-                "bridge": "cuttlefish-ota",
-                "gateway": "10.139.56.132",
+                "bridge": "cuttlefish-lab",
+                "gateway": "10.40.166.248",
                 "iface": "eth1",
-                "ipaddress": "10.139.56.202/24"
+                "ipaddress": "10.40.166.202/24"
+            }
+        ],
+        "mtt": [
+            {
+                "bridge": "cuttlefish-lab",
+                "gateway": "10.40.166.248",
+                "iface": "eth1",
+                "ipaddress": "10.40.166.203/24"
             }
         ],
         "ota": [
             {
-                "bridge": "cuttlefish-ota",
-                "gateway": "10.139.56.132",
+                "bridge": "cuttlefish-lab",
+                "gateway": "10.40.166.248",
                 "iface": "eth1",
-                "ipaddress": "10.139.56.201/24"
+                "ipaddress": "10.40.166.201/24"
             }
         ]
     },

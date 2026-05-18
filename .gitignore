@@ -189,3 +189,5 @@ results/
 
 # Trunk
 .trunk/
+
+.qodo/
