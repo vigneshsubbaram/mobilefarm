@@ -37,27 +37,43 @@ class CuttleFish(LinuxDevice, AndroidTemplate):
         self._shell_prompt = [r".*\/ \$"]
         self._ota_url: str
 
-    def _connect_to_console(self) -> None:
-        parts = shlex.split(self._config["conn_cmd"])
-        _LOGGER.warning(self._config["conn_cmd"])
-        self._console = connection_factory(
+    def _create_console_connection(self) -> BoardfarmPexpect:
+        """Create a console connection instance."""
+        return connection_factory(
             connection_type=str(self._config.get("connection_type")),
             connection_name=f"{self.device_name}.console",
-            conn_command=parts[0],
-            args=parts[1:],
+            conn_command=self._conn_parts[0],
+            args=self._conn_parts[1:],
             save_console_logs=self._cmdline_args.save_console_logs,
             shell_prompt=self._shell_prompt,
         )
+
+    def _connect_to_console(self) -> None:
+        """Establish an interactive console connection to the device."""
+        _LOGGER.info(
+            "Connecting to %s over ADB (%s)",
+            self.device_name,
+            self.adb_serial,
+        )
+        self._console = self._create_console_connection()
         self._console.login_to_server()
 
     @property
     def app_package(self) -> str:
-        """Device app package."""
+        """Device app package name.
+
+        :return: app package name
+        :rtype: str
+        """
         return self._config.get("app_package", "com.android.settings")
 
     @property
     def app_activity(self) -> str:
-        """Device app activity."""
+        """Device app activity.
+
+        :return: app activity
+        :rtype: str
+        """
         return self._config.get("app_activity", ".Settings")
 
     @property
@@ -95,6 +111,33 @@ class CuttleFish(LinuxDevice, AndroidTemplate):
         :rtype: str
         """
         return f"{self.target.split('-')[0]}-ota-{self.build_id}.zip"
+
+    @property
+    def _conn_parts(self) -> list[str]:
+        """Return the tokenized connection command.
+
+        :return: tokenized connection command
+        :rtype: list[str]
+        """
+        return shlex.split(self._config["conn_cmd"])
+
+    @property
+    def adb_serial(self) -> str:
+        """Return the ADB target in host:port format.
+
+        :return: The ADB target for connecting to the device, in host:port format
+        :rtype: str
+        """
+        command = shlex.split(self._conn_parts[2])
+        try:
+            connect_index = command.index("connect")
+            return command[connect_index + 1]
+        except (ValueError, IndexError) as exc:
+            err_msg = (
+                f"Unable to extract adb serial from connection command: "
+                f"{self._config['conn_cmd']}"
+            )
+            raise ValueError(err_msg) from exc
 
     def get_interactive_consoles(self) -> dict[str, BoardfarmPexpect]:
         """Get interactive consoles from device.
@@ -198,16 +241,8 @@ class CuttleFish(LinuxDevice, AndroidTemplate):
         poll_interval = 5
 
         while time.monotonic() < deadline:
-            parts = shlex.split(self._config["conn_cmd"])
             try:
-                probe = connection_factory(
-                    connection_type=str(self._config.get("connection_type")),
-                    connection_name=f"{self.device_name}.console",
-                    conn_command=parts[0],
-                    args=parts[1:],
-                    save_console_logs=self._cmdline_args.save_console_logs,
-                    shell_prompt=self._shell_prompt,
-                )
+                probe = self._create_console_connection()
                 probe.login_to_server()
                 probe.sendline("uptime")
                 index = probe.expect(self._shell_prompt, timeout=5)

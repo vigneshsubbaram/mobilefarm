@@ -6,7 +6,9 @@ from argparse import Namespace
 from boardfarm3 import hookimpl
 from boardfarm3.devices.base_devices import LinuxDevice
 from boardfarm3.lib.boardfarm_pexpect import BoardfarmPexpect
+from boardfarm3.lib.device_manager import DeviceManager
 
+from mobilefarm.templates.android import AndroidTemplate
 from mobilefarm.templates.ats import ATSTemplate
 
 _LOGGER = logging.getLogger(__name__)
@@ -54,8 +56,11 @@ class AndroidTestStation(LinuxDevice, ATSTemplate):
         """
         return {"android_test_station": self._console}
 
+    def _connect_to_dut(self, dut: AndroidTemplate) -> None:
+        self._console.execute_command(f"adb connect {dut.adb_serial}")
+
     @hookimpl
-    def boardfarm_skip_boot(self) -> None:
+    def boardfarm_skip_boot(self, device_manager: DeviceManager) -> None:
         """Boot Android Test Station with skip-boot option."""
         _LOGGER.info(
             "Initializing %s(%s) device with skip-boot option",
@@ -63,3 +68,7 @@ class AndroidTestStation(LinuxDevice, ATSTemplate):
             self.device_type,
         )
         self._connect()
+        dut = device_manager.get_device_by_type(
+            AndroidTemplate,  # type:ignore[type-abstract]
+        )
+        self._connect_to_dut(dut)

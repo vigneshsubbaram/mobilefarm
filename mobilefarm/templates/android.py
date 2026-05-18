@@ -40,3 +40,13 @@ class AndroidTemplate(ABC):  # pylint: disable=too-few-public-methods
     def app_activity(self) -> str:
         """Device app activity."""
         raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def adb_serial(self) -> str:
+        """Return the ADB target in host:port format.
+
+        :return: The ADB target for connecting to the device, in host:port format
+        :rtype: str
+        """
+        raise NotImplementedError
