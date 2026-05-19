@@ -2,12 +2,7 @@
     "bridge": {
         "cuttlefish-lab": {
             "ipaddress": "10.40.166.139/24",
-            "iprange": "10.40.166.0/24",
-            "parents": [
-                {
-                    "iface": "enx4218ed17cf5e"
-                }
-            ]
+            "iprange": "10.40.166.0/24"
         }
     },
     "container": {
