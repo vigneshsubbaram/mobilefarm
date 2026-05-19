@@ -55,7 +55,7 @@ jobs:
               uses: actions/checkout@v6
               with:
                   repository: vigneshsubbaram/mobilefarm
-                  ref: feat/mobilefarm-boot-ci
+                  ref: ${{ github.ref }}
                   path: mobilefarm
 
             - name: Build cuttlefish image
